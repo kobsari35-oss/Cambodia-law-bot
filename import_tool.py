@@ -4,10 +4,7 @@ from dotenv import load_dotenv
 
 load_dotenv()
 
-conn = psycopg2.connect(os.getenv('DATABASE_URL'))
-cur = conn.cursor()
-
-def save_to_db(code, section, title, content):
+def save_to_db(cur, code, section, title, content):
     try:
         cur.execute("""
             INSERT INTO law_articles (law_code, section, article_title, content)
@@ -19,6 +16,13 @@ def save_to_db(code, section, title, content):
 def import_laws_from_text(filename):
     if not os.path.exists(filename):
         print(f"❌ រកមិនឃើញ file {filename} ទេ! សូមបង្កើតវាសិន។")
+        return
+
+    try:
+        conn = psycopg2.connect(os.getenv('DATABASE_URL'), sslmode='require')
+        cur = conn.cursor()
+    except Exception as e:
+        print(f"❌ DB Connection Error: {e}")
         return
 
     with open(filename, 'r', encoding='utf-8') as f:
@@ -41,7 +45,7 @@ def import_laws_from_text(filename):
 
         elif line.startswith("SECTION:"):
             if current_title and current_content:
-                save_to_db(current_law_code, current_section, current_title, "\n".join(current_content))
+                save_to_db(cur, current_law_code, current_section, current_title, "\n".join(current_content))
                 current_content = []
                 current_title = None
             current_section = line.replace("SECTION:", "").strip()
@@ -49,7 +53,7 @@ def import_laws_from_text(filename):
 
         elif line.startswith("មាត្រា") and ":" in line:
             if current_title and current_content:
-                save_to_db(current_law_code, current_section, current_title, "\n".join(current_content))
+                save_to_db(cur, current_law_code, current_section, current_title, "\n".join(current_content))
             current_title = line
             current_content = []
             print(f"    -> Saving: {line}")
@@ -58,12 +62,12 @@ def import_laws_from_text(filename):
             current_content.append(line)
 
     if current_title and current_content:
-        save_to_db(current_law_code, current_section, current_title, "\n".join(current_content))
+        save_to_db(cur, current_law_code, current_section, current_title, "\n".join(current_content))
 
     conn.commit()
+    cur.close()
+    conn.close()
     print("✅ បញ្ចូលទិន្នន័យចប់សព្វគ្រប់!")
 
 if __name__ == "__main__":
     import_laws_from_text("raw_law.txt")
-    cur.close()
-    conn.close()

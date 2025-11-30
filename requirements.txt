@@ -1,6 +1,7 @@
 python-telegram-bot
 openai
-duckduckgo-search
 psycopg2-binary
 python-dotenv
 flask
+duckduckgo-search
+requests
